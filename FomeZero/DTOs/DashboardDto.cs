@@ -37,6 +37,9 @@ public class DashboardStatsResponse
     // Alertas
     public List<OldDebtAlert> OldDebts { get; set; } = [];
     public List<HighRiskCustomerAlert> HighRiskCustomers { get; set; } = [];
+
+    // Histórico mensal (últimos 6 meses)
+    public List<MonthlyData> MonthlyHistory { get; set; } = [];
 }
 
 public class SnackRankingItem
@@ -79,4 +82,10 @@ public class HighRiskCustomerAlert
     public decimal TotalDebt { get; set; }
     public int UnpaidSalesCount { get; set; }
     public string RiskReason { get; set; } = string.Empty;
+}
+
+public class MonthlyData
+{
+    public string Month { get; set; } = string.Empty;
+    public decimal Total { get; set; }
 }

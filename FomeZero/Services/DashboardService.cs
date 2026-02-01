@@ -91,6 +91,26 @@ public class DashboardService : IDashboardService
             response.MonthOverMonthGrowth = 0;
         }
 
+        // Histórico mensal (últimos 6 meses)
+        var monthlyHistory = new List<MonthlyData>();
+        for (int i = 5; i >= 0; i--)
+        {
+            var monthStart = currentMonthStart.AddMonths(-i);
+            var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
+            var monthName = monthStart.ToString("MMM/yy", new System.Globalization.CultureInfo("pt-BR"));
+
+            var monthTotal = allSales
+                .Where(s => s.SaleDate >= monthStart && s.SaleDate <= monthEnd)
+                .Sum(s => s.TotalAmount);
+
+            monthlyHistory.Add(new MonthlyData
+            {
+                Month = monthName,
+                Total = monthTotal
+            });
+        }
+        response.MonthlyHistory = monthlyHistory;
+
         // Top 3 lanches mais vendidos no período
         response.TopSellingSnacks = salesInPeriodList
             .SelectMany(s => s.Items)

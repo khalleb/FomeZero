@@ -15,6 +15,12 @@ export interface DashboardStats {
   topBuyerByValue: CustomerBuyerRanking | null;
   oldDebts: OldDebtAlert[];
   highRiskCustomers: HighRiskCustomerAlert[];
+  monthlyHistory: MonthlyData[];
+}
+
+export interface MonthlyData {
+  month: string;
+  total: number;
 }
 
 export interface SnackRankingItem {

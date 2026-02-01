@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -12,6 +12,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { RouterModule, Router } from '@angular/router';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartType } from 'chart.js';
 import { DashboardService } from '../../services/dashboard.service';
 import { SaleService } from '../../services/sale.service';
 import { PaymentMethodService } from '../../services/payment-method.service';
@@ -37,7 +39,8 @@ import { SaleFormComponent } from '../sales/sale-form.component';
     MatDatepickerModule,
     MatFormFieldModule,
     MatInputModule,
-    RouterModule
+    RouterModule,
+    BaseChartDirective
   ],
   template: `
     <!-- Header com filtro de período e botão nova venda -->
@@ -120,23 +123,33 @@ import { SaleFormComponent } from '../sales/sale-form.component';
           </mat-card-content>
         </mat-card>
 
-        <mat-card class="financial-card comparison">
-          <mat-card-content>
-            <div class="financial-icon" [class.positive]="(stats()?.monthOverMonthGrowth || 0) >= 0" [class.negative]="(stats()?.monthOverMonthGrowth || 0) < 0">
-              <mat-icon>{{ (stats()?.monthOverMonthGrowth || 0) >= 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-            </div>
-            <div class="financial-info">
-              <p class="label">Comparativo Mensal</p>
-              <h2 [class.positive]="(stats()?.monthOverMonthGrowth || 0) >= 0" [class.negative]="(stats()?.monthOverMonthGrowth || 0) < 0">
-                {{ (stats()?.monthOverMonthGrowth || 0) >= 0 ? '+' : '' }}{{ stats()?.monthOverMonthGrowth | number:'1.1-1' }}%
-              </h2>
-              <p class="sub-label">
-                {{ stats()?.currentMonthTotal | currency:'BRL' }} vs {{ stats()?.previousMonthTotal | currency:'BRL' }}
-              </p>
-            </div>
-          </mat-card-content>
-        </mat-card>
       </div>
+
+      <!-- Gráfico de Evolução Mensal -->
+      <mat-card class="chart-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>show_chart</mat-icon>
+            Evolução Mensal
+            <span class="growth-badge" [class.positive]="(stats()?.monthOverMonthGrowth || 0) >= 0" [class.negative]="(stats()?.monthOverMonthGrowth || 0) < 0">
+              {{ (stats()?.monthOverMonthGrowth || 0) >= 0 ? '+' : '' }}{{ stats()?.monthOverMonthGrowth | number:'1.1-1' }}%
+            </span>
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          @if (stats()?.monthlyHistory && stats()!.monthlyHistory.length > 0) {
+            <div class="chart-container">
+              <canvas baseChart
+                [data]="chartData()"
+                [options]="chartOptions"
+                [type]="chartType">
+              </canvas>
+            </div>
+          } @else {
+            <p class="empty-message">Sem dados para exibir</p>
+          }
+        </mat-card-content>
+      </mat-card>
 
       <!-- Cards de Contadores -->
       <div class="counter-cards">
@@ -179,33 +192,6 @@ import { SaleFormComponent } from '../sales/sale-form.component';
 
       <!-- Rankings Section -->
       <div class="rankings-section">
-        <!-- Top Selling Snacks -->
-        <mat-card class="ranking-card">
-          <mat-card-header>
-            <mat-card-title>
-              <mat-icon>emoji_events</mat-icon>
-              Lanches Mais Vendidos
-            </mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            @if (stats()?.topSellingSnacks && stats()!.topSellingSnacks.length > 0) {
-              <div class="ranking-list">
-                @for (snack of stats()!.topSellingSnacks; track snack.snackName; let i = $index) {
-                  <div class="ranking-item" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
-                    <div class="rank-badge">{{ i + 1 }}</div>
-                    <div class="rank-info">
-                      <span class="rank-name">{{ snack.snackName }}</span>
-                      <span class="rank-details">{{ snack.quantitySold }} vendidos - {{ snack.totalRevenue | currency:'BRL' }}</span>
-                    </div>
-                  </div>
-                }
-              </div>
-            } @else {
-              <p class="empty-message">Nenhuma venda no período</p>
-            }
-          </mat-card-content>
-        </mat-card>
-
         <!-- Top Buyers -->
         <mat-card class="ranking-card">
           <mat-card-header>
@@ -438,9 +424,39 @@ import { SaleFormComponent } from '../sales/sale-form.component';
     .collected .financial-icon { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
     .receivable .financial-icon { background: rgba(255, 152, 0, 0.2); color: #ff9800; }
     .ticket .financial-icon { background: rgba(0, 188, 212, 0.2); color: #00bcd4; }
-    .comparison .financial-icon { background: rgba(156, 39, 176, 0.2); color: #9c27b0; }
-    .comparison .financial-icon.positive { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
-    .comparison .financial-icon.negative { background: rgba(244, 67, 54, 0.2); color: #f44336; }
+    /* Chart Card */
+    .chart-card {
+      background-color: #1e1e1e !important;
+      margin-bottom: 24px;
+    }
+    .chart-card mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+    }
+    .chart-card mat-card-title mat-icon {
+      color: #00bcd4;
+    }
+    .growth-badge {
+      margin-left: auto;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .growth-badge.positive {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+    }
+    .growth-badge.negative {
+      background: rgba(244, 67, 54, 0.2);
+      color: #f44336;
+    }
+    .chart-container {
+      height: 250px;
+      position: relative;
+    }
     .financial-info {
       flex: 1;
     }
@@ -735,6 +751,72 @@ export class DashboardComponent implements OnInit {
   readonly paymentMethods = signal<PaymentMethod[]>([]);
 
   readonly displayedColumns = ['customer', 'date', 'total', 'actions'];
+
+  // Configurações do gráfico
+  readonly chartType: ChartType = 'line';
+
+  readonly chartData = computed(() => {
+    const monthlyHistory = this.stats()?.monthlyHistory || [];
+    return {
+      labels: monthlyHistory.map(m => m.month),
+      datasets: [
+        {
+          data: monthlyHistory.map(m => m.total),
+          label: 'Faturamento',
+          fill: true,
+          tension: 0.4,
+          borderColor: '#00bcd4',
+          backgroundColor: 'rgba(0, 188, 212, 0.1)',
+          pointBackgroundColor: '#00bcd4',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: '#00bcd4'
+        }
+      ]
+    };
+  });
+
+  readonly chartOptions: ChartConfiguration['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        backgroundColor: '#1e1e1e',
+        titleColor: '#fff',
+        bodyColor: '#aaa',
+        borderColor: '#333',
+        borderWidth: 1,
+        callbacks: {
+          label: (context) => {
+            const value = context.parsed.y ?? 0;
+            return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)'
+        },
+        ticks: {
+          color: '#aaa'
+        }
+      },
+      y: {
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)'
+        },
+        ticks: {
+          color: '#aaa',
+          callback: (value) => `R$ ${Number(value).toLocaleString('pt-BR')}`
+        }
+      }
+    }
+  };
 
   constructor(
     private dashboardService: DashboardService,
