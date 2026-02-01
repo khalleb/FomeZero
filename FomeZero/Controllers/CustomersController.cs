@@ -32,7 +32,7 @@ public class CustomersController : ControllerBase
             var searchDigits = new string(search.Where(char.IsDigit).ToArray());
             customers = customers.Where(c =>
                 c.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                (!string.IsNullOrEmpty(c.WhatsApp) && c.WhatsApp.Contains(searchDigits)));
+                (!string.IsNullOrEmpty(searchDigits) && !string.IsNullOrEmpty(c.WhatsApp) && c.WhatsApp.Contains(searchDigits)));
         }
 
         var customerList = customers.ToList();
