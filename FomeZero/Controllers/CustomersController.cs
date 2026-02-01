@@ -26,11 +26,13 @@ public class CustomersController : ControllerBase
     {
         var customers = await _service.GetAllAsync();
 
-        // Apply search filter
+        // Apply search filter by name or WhatsApp
         if (!string.IsNullOrWhiteSpace(search))
         {
+            var searchDigits = new string(search.Where(char.IsDigit).ToArray());
             customers = customers.Where(c =>
-                c.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+                c.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrEmpty(c.WhatsApp) && c.WhatsApp.Contains(searchDigits)));
         }
 
         var customerList = customers.ToList();

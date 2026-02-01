@@ -130,6 +130,16 @@ import { forkJoin } from 'rxjs';
                         <mat-icon>payments</mat-icon>
                         Receber Tudo ({{ debt.totalDebt | currency:'BRL' }})
                       </button>
+                      <button mat-stroked-button (click)="copyReport(debt)">
+                        <mat-icon>content_copy</mat-icon>
+                        Copiar Extrato
+                      </button>
+                      @if (debt.customerWhatsApp) {
+                        <button mat-stroked-button color="accent" (click)="sendWhatsApp(debt)">
+                          <mat-icon>phone</mat-icon>
+                          Enviar WhatsApp
+                        </button>
+                      }
                     </div>
 
                     <table mat-table [dataSource]="customerSales()[debt.customerId] || []" class="sales-table">
@@ -288,6 +298,9 @@ import { forkJoin } from 'rxjs';
       padding: 20px;
     }
     .sales-actions-header {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
       margin-bottom: 16px;
     }
     .sales-table {
@@ -407,6 +420,55 @@ export class AccountsReceivableComponent implements OnInit {
 
   formatCurrency(value: number): string {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  generateReport(debt: CustomerDebtSummary): string {
+    const sales = this.customerSales()[debt.customerId] || [];
+    const today = new Date().toLocaleDateString('pt-BR');
+
+    let report = `📋 *FOME ZERO - Extrato de Débito*\n\n`;
+    report += `👤 Cliente: ${debt.customerName}\n`;
+    report += `📅 Data: ${today}\n\n`;
+    report += `📝 *Compras em aberto:*\n`;
+
+    for (const sale of sales) {
+      const saleDate = new Date(sale.saleDate!).toLocaleDateString('pt-BR');
+      const items = sale.items?.map(item =>
+        `${item.snack?.name || 'Item'} (${item.quantity}x)`
+      ).join(', ') || 'Itens não disponíveis';
+      const amount = this.formatCurrency(sale.totalAmount || 0);
+      report += `• ${saleDate} - ${items} - ${amount}\n`;
+    }
+
+    report += `\n💰 *Total devido: ${this.formatCurrency(debt.totalDebt)}*\n\n`;
+    report += `Qualquer dúvida, estamos à disposição!`;
+
+    return report;
+  }
+
+  copyReport(debt: CustomerDebtSummary): void {
+    const report = this.generateReport(debt);
+    navigator.clipboard.writeText(report).then(() => {
+      this.snackBar.open('Extrato copiado para a área de transferência!', 'Fechar', {
+        duration: 3000,
+        horizontalPosition: 'center',
+        verticalPosition: 'top'
+      });
+    }).catch(() => {
+      this.snackBar.open('Erro ao copiar extrato', 'Fechar', {
+        duration: 3000,
+        horizontalPosition: 'center',
+        verticalPosition: 'top'
+      });
+    });
+  }
+
+  sendWhatsApp(debt: CustomerDebtSummary): void {
+    const report = this.generateReport(debt);
+    const phone = debt.customerWhatsApp.replace(/\D/g, '');
+    const encodedMessage = encodeURIComponent(report);
+    const whatsappUrl = `https://wa.me/55${phone}?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
   }
 
   receiveSingle(sale: Sale, debt: CustomerDebtSummary): void {
