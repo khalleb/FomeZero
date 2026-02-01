@@ -27,6 +27,7 @@ public class CustomerService : ICustomerService
 
     public async Task<CustomerDto> CreateAsync(Customer customer)
     {
+        customer.WhatsApp = CleanWhatsApp(customer.WhatsApp);
         var created = await _repository.CreateAsync(customer);
         return MapToDto(created);
     }
@@ -38,11 +39,19 @@ public class CustomerService : ICustomerService
             return null;
 
         existingCustomer.Name = customer.Name;
-        existingCustomer.WhatsApp = customer.WhatsApp;
+        existingCustomer.WhatsApp = CleanWhatsApp(customer.WhatsApp);
         existingCustomer.Active = customer.Active;
 
         var updated = await _repository.UpdateAsync(existingCustomer);
         return MapToDto(updated!);
+    }
+
+    private static string? CleanWhatsApp(string? whatsApp)
+    {
+        if (string.IsNullOrWhiteSpace(whatsApp))
+            return null;
+
+        return new string(whatsApp.Where(char.IsDigit).ToArray());
     }
 
     public async Task<bool> DeleteAsync(Guid id)
