@@ -24,6 +24,31 @@ public class CustomerRepository : ICustomerRepository
         return await _context.Customers.FindAsync(id);
     }
 
+    public async Task<Customer?> GetByNameAsync(string name, Guid? excludeId = null)
+    {
+        var query = _context.Customers
+            .Where(c => c.Name.ToLower() == name.ToLower());
+
+        if (excludeId.HasValue)
+            query = query.Where(c => c.Id != excludeId.Value);
+
+        return await query.FirstOrDefaultAsync();
+    }
+
+    public async Task<Customer?> GetByWhatsAppAsync(string whatsApp, Guid? excludeId = null)
+    {
+        if (string.IsNullOrWhiteSpace(whatsApp))
+            return null;
+
+        var query = _context.Customers
+            .Where(c => c.WhatsApp == whatsApp);
+
+        if (excludeId.HasValue)
+            query = query.Where(c => c.Id != excludeId.Value);
+
+        return await query.FirstOrDefaultAsync();
+    }
+
     public async Task<Customer> CreateAsync(Customer customer)
     {
         _context.Customers.Add(customer);

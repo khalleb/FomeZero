@@ -7,7 +7,7 @@ public interface ICustomerService
 {
     Task<IEnumerable<CustomerDto>> GetAllAsync();
     Task<CustomerDto?> GetByIdAsync(Guid id);
-    Task<CustomerDto> CreateAsync(Customer customer);
-    Task<CustomerDto?> UpdateAsync(Guid id, Customer customer);
+    Task<(CustomerDto? Customer, string? Error)> CreateAsync(Customer customer);
+    Task<(CustomerDto? Customer, string? Error)> UpdateAsync(Guid id, Customer customer);
     Task<bool> DeleteAsync(Guid id);
 }

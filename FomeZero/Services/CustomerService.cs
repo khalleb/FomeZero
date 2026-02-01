@@ -25,25 +25,52 @@ public class CustomerService : ICustomerService
         return customer == null ? null : MapToDto(customer);
     }
 
-    public async Task<CustomerDto> CreateAsync(Customer customer)
+    public async Task<(CustomerDto? Customer, string? Error)> CreateAsync(Customer customer)
     {
+        // Validar nome duplicado
+        var existingByName = await _repository.GetByNameAsync(customer.Name);
+        if (existingByName != null)
+            return (null, "Já existe um cliente cadastrado com este nome.");
+
+        // Limpar e validar WhatsApp duplicado
         customer.WhatsApp = CleanWhatsApp(customer.WhatsApp);
+        if (!string.IsNullOrWhiteSpace(customer.WhatsApp))
+        {
+            var existingByWhatsApp = await _repository.GetByWhatsAppAsync(customer.WhatsApp);
+            if (existingByWhatsApp != null)
+                return (null, "Já existe um cliente cadastrado com este número de WhatsApp.");
+        }
+
         var created = await _repository.CreateAsync(customer);
-        return MapToDto(created);
+        return (MapToDto(created), null);
     }
 
-    public async Task<CustomerDto?> UpdateAsync(Guid id, Customer customer)
+    public async Task<(CustomerDto? Customer, string? Error)> UpdateAsync(Guid id, Customer customer)
     {
         var existingCustomer = await _repository.GetByIdAsync(id);
         if (existingCustomer == null)
-            return null;
+            return (null, "Cliente não encontrado.");
+
+        // Validar nome duplicado (excluindo o próprio registro)
+        var existingByName = await _repository.GetByNameAsync(customer.Name, id);
+        if (existingByName != null)
+            return (null, "Já existe um cliente cadastrado com este nome.");
+
+        // Limpar e validar WhatsApp duplicado (excluindo o próprio registro)
+        var cleanedWhatsApp = CleanWhatsApp(customer.WhatsApp);
+        if (!string.IsNullOrWhiteSpace(cleanedWhatsApp))
+        {
+            var existingByWhatsApp = await _repository.GetByWhatsAppAsync(cleanedWhatsApp, id);
+            if (existingByWhatsApp != null)
+                return (null, "Já existe um cliente cadastrado com este número de WhatsApp.");
+        }
 
         existingCustomer.Name = customer.Name;
-        existingCustomer.WhatsApp = CleanWhatsApp(customer.WhatsApp);
+        existingCustomer.WhatsApp = cleanedWhatsApp;
         existingCustomer.Active = customer.Active;
 
         var updated = await _repository.UpdateAsync(existingCustomer);
-        return MapToDto(updated!);
+        return (MapToDto(updated!), null);
     }
 
     private static string? CleanWhatsApp(string? whatsApp)

@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CustomerService } from '../../services/customer.service';
 import { Customer } from '../../models/customer.model';
 import { finalize } from 'rxjs';
@@ -23,6 +24,7 @@ import { finalize } from 'rxjs';
     MatButtonModule,
     MatProgressSpinnerModule,
     MatSlideToggleModule,
+    MatSnackBarModule,
   ],
   template: `
     <h2 mat-dialog-title>{{ data ? 'Editar' : 'Novo' }} Cliente</h2>
@@ -73,7 +75,8 @@ export class CustomerFormComponent {
     public dialogRef: MatDialogRef<CustomerFormComponent>,
     @Inject(MAT_DIALOG_DATA) public data: Customer | null,
     private fb: FormBuilder,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private snackBar: MatSnackBar
   ) {
     this.form = this.fb.group({
       name: [data?.name || '', Validators.required],
@@ -108,8 +111,13 @@ export class CustomerFormComponent {
       next: () => {
         this.dialogRef.close(true);
       },
-      error: () => {
-        // Handle error if needed
+      error: (err) => {
+        const message = err.error?.message || 'Erro ao salvar cliente.';
+        this.snackBar.open(message, 'Fechar', {
+          duration: 5000,
+          horizontalPosition: 'center',
+          verticalPosition: 'top'
+        });
       }
     });
   }

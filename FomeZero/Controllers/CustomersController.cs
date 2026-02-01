@@ -65,16 +65,23 @@ public class CustomersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<CustomerDto>> Create(Customer customer)
     {
-        var created = await _service.CreateAsync(customer);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        var (created, error) = await _service.CreateAsync(customer);
+        if (error != null)
+            return BadRequest(new { message = error });
+
+        return CreatedAtAction(nameof(GetById), new { id = created!.Id }, created);
     }
 
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<CustomerDto>> Update(Guid id, Customer customer)
     {
-        var updated = await _service.UpdateAsync(id, customer);
-        if (updated == null)
-            return NotFound();
+        var (updated, error) = await _service.UpdateAsync(id, customer);
+        if (error != null)
+        {
+            if (error == "Cliente não encontrado.")
+                return NotFound(new { message = error });
+            return BadRequest(new { message = error });
+        }
 
         return Ok(updated);
     }
