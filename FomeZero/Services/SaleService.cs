@@ -58,6 +58,7 @@ public class SaleService : ISaleService
                 CustomerName = g.First().Customer?.Name ?? "Cliente",
                 CustomerWhatsApp = g.First().Customer?.WhatsApp ?? "",
                 TotalDebt = g.Sum(s => s.TotalAmount),
+                CustomerCredit = g.First().Customer?.Credit ?? 0,
                 UnpaidSalesCount = g.Count(),
                 OldestSaleDate = g.Min(s => s.SaleDate)
             })

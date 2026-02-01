@@ -15,9 +15,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { SaleService, PaymentDetail } from '../../services/sale.service';
 import { PaymentMethodService } from '../../services/payment-method.service';
+import { CustomerCreditService } from '../../services/customer-credit.service';
 import { Sale, CustomerDebtSummary } from '../../models/sale.model';
 import { PaymentMethod } from '../../models/payment-method.model';
 import { ReceivePaymentDialogComponent, ReceivePaymentDialogResult } from '../shared/receive-payment-dialog.component';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { forkJoin } from 'rxjs';
 
 @Component({
@@ -38,6 +40,7 @@ import { forkJoin } from 'rxjs';
     MatChipsModule,
     MatTooltipModule,
     MatPaginatorModule,
+    MatSnackBarModule,
   ],
   template: `
     <div class="header">
@@ -108,6 +111,9 @@ import { forkJoin } from 'rxjs';
                   <mat-panel-description>
                     <div class="debt-summary">
                       <mat-chip class="sales-count">{{ debt.unpaidSalesCount }} venda(s)</mat-chip>
+                      @if (debt.customerCredit > 0) {
+                        <mat-chip class="credit-chip">Crédito: {{ debt.customerCredit | currency:'BRL' }}</mat-chip>
+                      }
                       <span class="debt-amount">{{ debt.totalDebt | currency:'BRL' }}</span>
                     </div>
                   </mat-panel-description>
@@ -149,7 +155,7 @@ import { forkJoin } from 'rxjs';
                       <ng-container matColumnDef="actions">
                         <th mat-header-cell *matHeaderCellDef>Ações</th>
                         <td mat-cell *matCellDef="let sale">
-                          <button mat-button color="primary" (click)="receiveSingle(sale, debt.customerName)">
+                          <button mat-button color="primary" (click)="receiveSingle(sale, debt)">
                             Receber
                           </button>
                         </td>
@@ -264,6 +270,10 @@ import { forkJoin } from 'rxjs';
       background-color: rgba(0, 188, 212, 0.2) !important;
       color: #00bcd4 !important;
     }
+    .credit-chip {
+      background-color: rgba(76, 175, 80, 0.2) !important;
+      color: #4caf50 !important;
+    }
     .debt-amount {
       font-weight: 500;
       color: #ff5252;
@@ -315,7 +325,9 @@ export class AccountsReceivableComponent implements OnInit {
   constructor(
     private saleService: SaleService,
     private paymentMethodService: PaymentMethodService,
-    private dialog: MatDialog
+    private customerCreditService: CustomerCreditService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
@@ -393,18 +405,34 @@ export class AccountsReceivableComponent implements OnInit {
     ).join('\n');
   }
 
-  receiveSingle(sale: Sale, customerName: string): void {
+  formatCurrency(value: number): string {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  receiveSingle(sale: Sale, debt: CustomerDebtSummary): void {
     const dialogRef = this.dialog.open(ReceivePaymentDialogComponent, {
       width: '500px',
       data: {
-        customerName: customerName,
+        customerName: debt.customerName,
         totalAmount: sale.totalAmount || 0,
-        paymentMethods: this.paymentMethods()
+        paymentMethods: this.paymentMethods(),
+        customerId: debt.customerId,
+        customerCredit: debt.customerCredit
       }
     });
 
     dialogRef.afterClosed().subscribe((result: ReceivePaymentDialogResult) => {
       if (result?.confirmed) {
+        // Se usou crédito, registrar o uso
+        if (result.useCredit && result.creditUsed && result.creditUsed > 0) {
+          this.customerCreditService.useCredit({
+            customerId: debt.customerId,
+            amount: result.creditUsed,
+            description: `Pagamento de venda - ${debt.customerName}`,
+            referenceDate: result.paidAt
+          }).subscribe();
+        }
+
         this.saleService.markAsPaid(sale.id!, result.paidAt, result.payments).subscribe(() => {
           this.loadData();
           this.customerSales.set({});
@@ -419,7 +447,10 @@ export class AccountsReceivableComponent implements OnInit {
       data: {
         customerName: debt.customerName,
         totalAmount: debt.totalDebt,
-        paymentMethods: this.paymentMethods()
+        paymentMethods: this.paymentMethods(),
+        customerId: debt.customerId,
+        customerCredit: 0, // Desabilitar uso de crédito no FIFO
+        allowPartialPayment: true
       }
     });
 
@@ -430,22 +461,76 @@ export class AccountsReceivableComponent implements OnInit {
           return;
         }
 
-        const totalAmount = debt.totalDebt;
-        let remainingAmount = totalAmount;
+        // Calcular valor total recebido (apenas pagamentos)
+        const totalPayments = result.payments.reduce((sum, p) => sum + p.amount, 0);
+        let remainingAmount = totalPayments;
 
-        const paymentPromises = sales.map((sale, index) => {
+        // Ordenar vendas por data (mais antiga primeiro - FIFO)
+        const sortedSales = [...sales].sort((a, b) =>
+          new Date(a.saleDate!).getTime() - new Date(b.saleDate!).getTime()
+        );
+
+        // Determinar quais vendas serão pagas completamente
+        const salesToPay: Sale[] = [];
+        for (const sale of sortedSales) {
+          const saleAmount = sale.totalAmount || 0;
+          if (remainingAmount >= saleAmount) {
+            salesToPay.push(sale);
+            remainingAmount -= saleAmount;
+          } else {
+            break; // Não tem dinheiro suficiente para esta venda
+          }
+        }
+
+        // Pagar as vendas selecionadas
+        if (salesToPay.length === 0) {
+          // Nenhuma venda pode ser paga completamente, adicionar tudo como crédito
+          this.customerCreditService.addCredit({
+            customerId: debt.customerId,
+            amount: totalPayments,
+            description: `Pagamento antecipado - ${debt.customerName}`,
+            referenceDate: result.paidAt
+          }).subscribe(() => {
+            this.snackBar.open(
+              `Valor de ${this.formatCurrency(totalPayments)} adicionado como crédito para ${debt.customerName}`,
+              'Fechar',
+              { duration: 5000, horizontalPosition: 'center', verticalPosition: 'top' }
+            );
+            this.loadData();
+            this.customerSales.set({});
+          });
+          return;
+        }
+
+        // Se sobrou dinheiro após pagar as vendas completas, adicionar como crédito
+        const creditGenerated = remainingAmount > 0.01 ? Math.round(remainingAmount * 100) / 100 : 0;
+        if (creditGenerated > 0) {
+          this.customerCreditService.addCredit({
+            customerId: debt.customerId,
+            amount: creditGenerated,
+            description: `Troco do pagamento de ${salesToPay.length} venda(s)`,
+            referenceDate: result.paidAt
+          }).subscribe();
+        }
+
+        // Distribuir pagamentos entre as vendas que serão pagas
+        const totalToPay = salesToPay.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+
+        const paymentPromises = salesToPay.map((sale, index) => {
           const saleAmount = sale.totalAmount || 0;
 
+          // Distribuir proporcionalmente apenas os pagamentos (não o crédito)
           const salePayments: PaymentDetail[] = result.payments.map(p => ({
             paymentMethodId: p.paymentMethodId,
-            amount: Math.round((p.amount * saleAmount / totalAmount) * 100) / 100
+            amount: Math.round((p.amount * saleAmount / totalToPay) * 100) / 100
           }));
 
-          if (index === sales.length - 1) {
+          // Ajustar arredondamento na última venda
+          if (index === salesToPay.length - 1) {
             const totalDistributed = salePayments.reduce((sum, p) => sum + p.amount, 0);
-            const diff = saleAmount - totalDistributed;
-            if (diff !== 0 && salePayments.length > 0) {
-              salePayments[0].amount += diff;
+            const diff = Math.round((saleAmount - totalDistributed) * 100) / 100;
+            if (Math.abs(diff) > 0.01 && salePayments.length > 0) {
+              salePayments[0].amount = Math.round((salePayments[0].amount + diff) * 100) / 100;
             }
           }
 
@@ -453,6 +538,15 @@ export class AccountsReceivableComponent implements OnInit {
         });
 
         forkJoin(paymentPromises).subscribe(() => {
+          let message = `${salesToPay.length} venda(s) quitada(s)`;
+          if (creditGenerated > 0) {
+            message += `. Crédito gerado: ${this.formatCurrency(creditGenerated)}`;
+          }
+          this.snackBar.open(message, 'Fechar', {
+            duration: 5000,
+            horizontalPosition: 'center',
+            verticalPosition: 'top'
+          });
           this.loadData();
           this.customerSales.set({});
         });

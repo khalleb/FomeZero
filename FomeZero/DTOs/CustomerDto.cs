@@ -7,6 +7,7 @@ public class CustomerDto
     public string WhatsApp { get; set; } = string.Empty;
     public string WhatsAppFormatted { get; set; } = string.Empty;
     public bool Active { get; set; }
+    public decimal Credit { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

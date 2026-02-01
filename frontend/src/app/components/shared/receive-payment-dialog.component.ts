@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { PaymentMethod } from '../../models/payment-method.model';
 
 export interface PaymentEntry {
@@ -19,12 +20,17 @@ export interface ReceivePaymentDialogData {
   customerName: string;
   totalAmount: number;
   paymentMethods: PaymentMethod[];
+  customerId?: string;
+  customerCredit?: number;
+  allowPartialPayment?: boolean;
 }
 
 export interface ReceivePaymentDialogResult {
   confirmed: boolean;
   paidAt?: Date;
   payments: PaymentEntry[];
+  useCredit?: boolean;
+  creditUsed?: number;
 }
 
 @Component({
@@ -40,12 +46,28 @@ export interface ReceivePaymentDialogResult {
     MatDatepickerModule,
     MatSelectModule,
     MatIconModule,
+    MatCheckboxModule,
   ],
   template: `
     <h2 mat-dialog-title>Receber Pagamento</h2>
     <mat-dialog-content>
       <p><strong>Cliente:</strong> {{ data.customerName }}</p>
       <p><strong>Valor Total:</strong> {{ data.totalAmount | currency:'BRL' }}</p>
+
+      @if (data.customerCredit && data.customerCredit > 0) {
+        <div class="credit-section">
+          <mat-checkbox [(ngModel)]="useCredit" (change)="onUseCreditChange()">
+            Usar crédito disponível: {{ data.customerCredit | currency:'BRL' }}
+          </mat-checkbox>
+          @if (useCredit) {
+            <p class="credit-info">
+              Crédito a utilizar: <strong>{{ creditToUse() | currency:'BRL' }}</strong>
+              <br>
+              Restante a pagar: <strong>{{ amountAfterCredit() | currency:'BRL' }}</strong>
+            </p>
+          }
+        </div>
+      }
 
       <mat-form-field class="full-width">
         <mat-label>Data do Pagamento</mat-label>
@@ -89,16 +111,26 @@ export interface ReceivePaymentDialogResult {
         }
       </div>
 
-      <div class="summary" [class.error]="difference() !== 0">
+      <div class="summary" [class.error]="difference() !== 0 && !data.allowPartialPayment">
         <div class="summary-row">
           <span>Total Informado:</span>
           <span>{{ paymentsTotal() | currency:'BRL' }}</span>
         </div>
         @if (difference() !== 0) {
-          <div class="summary-row difference">
-            <span>Diferença:</span>
-            <span>{{ difference() | currency:'BRL' }}</span>
+          <div class="summary-row" [class.difference]="!data.allowPartialPayment" [class.info]="data.allowPartialPayment">
+            <span>{{ difference() > 0 ? 'Faltam:' : 'Sobram:' }}</span>
+            <span>{{ (difference() > 0 ? difference() : -difference()) | currency:'BRL' }}</span>
           </div>
+          @if (data.allowPartialPayment && difference() < 0) {
+            <div class="summary-row info">
+              <span>O valor excedente será adicionado como crédito do cliente.</span>
+            </div>
+          }
+          @if (data.allowPartialPayment && difference() > 0) {
+            <div class="summary-row info">
+              <span>As vendas mais antigas serão quitadas (FIFO).</span>
+            </div>
+          }
         }
       </div>
     </mat-dialog-content>
@@ -160,19 +192,45 @@ export interface ReceivePaymentDialogResult {
       color: #f44336;
       font-weight: 500;
     }
+    .summary-row.info {
+      color: #1976d2;
+      font-size: 12px;
+    }
+    .credit-section {
+      margin: 16px 0;
+      padding: 12px;
+      background-color: #e8f5e9;
+      border-radius: 4px;
+    }
+    .credit-info {
+      margin: 8px 0 0 0;
+      font-size: 14px;
+      color: #2e7d32;
+    }
   `]
 })
 export class ReceivePaymentDialogComponent {
   paidAt: Date = new Date();
+  useCredit: boolean = false;
   readonly payments = signal<PaymentEntry[]>([]);
   readonly activePaymentMethods: PaymentMethod[];
+
+  readonly creditToUse = computed(() => {
+    if (!this.useCredit || !this.data.customerCredit) return 0;
+    return Math.min(this.data.customerCredit, this.data.totalAmount);
+  });
+
+  readonly amountAfterCredit = computed(() => {
+    return Math.round((this.data.totalAmount - this.creditToUse()) * 100) / 100;
+  });
 
   readonly paymentsTotal = computed(() => {
     return this.payments().reduce((sum, p) => sum + (p.amount || 0), 0);
   });
 
   readonly difference = computed(() => {
-    return Math.round((this.data.totalAmount - this.paymentsTotal()) * 100) / 100;
+    const expectedAmount = this.amountAfterCredit();
+    return Math.round((expectedAmount - this.paymentsTotal()) * 100) / 100;
   });
 
   constructor(
@@ -185,6 +243,15 @@ export class ReceivePaymentDialogComponent {
       this.payments.set([{
         paymentMethodId: this.activePaymentMethods[0].id!,
         amount: data.totalAmount
+      }]);
+    }
+  }
+
+  onUseCreditChange(): void {
+    if (this.activePaymentMethods.length > 0) {
+      this.payments.set([{
+        paymentMethodId: this.activePaymentMethods[0].id!,
+        amount: this.useCredit ? this.amountAfterCredit() : this.data.totalAmount
       }]);
     }
   }
@@ -209,6 +276,11 @@ export class ReceivePaymentDialogComponent {
   isValid(): boolean {
     const payments = this.payments();
     if (payments.length === 0) return false;
+    // Se permite pagamento parcial, só valida se tem valor > 0
+    if (this.data.allowPartialPayment) {
+      return payments.every(p => p.paymentMethodId && p.amount > 0);
+    }
+    // Caso contrário, valida se o valor é exato
     if (this.difference() !== 0) return false;
     return payments.every(p => p.paymentMethodId && p.amount > 0);
   }
@@ -221,7 +293,9 @@ export class ReceivePaymentDialogComponent {
     this.dialogRef.close({
       confirmed: true,
       paidAt: this.paidAt,
-      payments: this.payments()
+      payments: this.payments(),
+      useCredit: this.useCredit,
+      creditUsed: this.creditToUse()
     });
   }
 }

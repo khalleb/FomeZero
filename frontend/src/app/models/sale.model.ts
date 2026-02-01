@@ -35,6 +35,7 @@ export interface CustomerDebtSummary {
   customerName: string;
   customerWhatsApp: string;
   totalDebt: number;
+  customerCredit: number;
   unpaidSalesCount: number;
   oldestSaleDate?: Date;
 }

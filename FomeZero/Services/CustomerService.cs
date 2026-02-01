@@ -95,6 +95,7 @@ public class CustomerService : ICustomerService
             WhatsApp = customer.WhatsApp,
             WhatsAppFormatted = CustomerDto.FormatWhatsApp(customer.WhatsApp),
             Active = customer.Active,
+            Credit = customer.Credit,
             CreatedAt = customer.CreatedAt,
             UpdatedAt = customer.UpdatedAt
         };

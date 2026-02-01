@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
     public DbSet<SalePayment> SalePayments => Set<SalePayment>();
+    public DbSet<CustomerCredit> CustomerCredits => Set<CustomerCredit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +25,17 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.WhatsApp).HasMaxLength(20);
+            entity.Property(e => e.Credit).HasPrecision(10, 2).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<CustomerCredit>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Customer)
+                .WithMany()
+                .HasForeignKey(e => e.CustomerId);
+            entity.Property(e => e.Amount).HasPrecision(10, 2);
+            entity.Property(e => e.Description).HasMaxLength(500);
         });
 
         modelBuilder.Entity<Snack>(entity =>

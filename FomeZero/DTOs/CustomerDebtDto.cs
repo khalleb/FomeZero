@@ -6,6 +6,7 @@ public class CustomerDebtDto
     public string CustomerName { get; set; } = string.Empty;
     public string CustomerWhatsApp { get; set; } = string.Empty;
     public decimal TotalDebt { get; set; }
+    public decimal CustomerCredit { get; set; }
     public int UnpaidSalesCount { get; set; }
     public DateTime? OldestSaleDate { get; set; }
 }

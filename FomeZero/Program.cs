@@ -50,6 +50,7 @@ builder.Services.AddScoped<ISnackRepository, SnackRepository>();
 builder.Services.AddScoped<ISaleRepository, SaleRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ICustomerCreditRepository, CustomerCreditRepository>();
 
 // Services
 builder.Services.AddScoped<ICustomerService, CustomerService>();
@@ -59,6 +60,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ICustomerCreditService, CustomerCreditService>();
 
 // Controllers
 builder.Services.AddControllers()
