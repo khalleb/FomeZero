@@ -1,0 +1,91 @@
+using FomeZero.DTOs;
+using FomeZero.Entities;
+using FomeZero.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace FomeZero.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public class CustomersController : ControllerBase
+{
+    private readonly ICustomerService _service;
+
+    public CustomersController(ICustomerService service)
+    {
+        _service = service;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<CustomerDto>>> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null)
+    {
+        var customers = await _service.GetAllAsync();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            customers = customers.Where(c =>
+                c.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var customerList = customers.ToList();
+        var totalCount = customerList.Count;
+
+        var pagedItems = customerList
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        var result = new PagedResult<CustomerDto>
+        {
+            Items = pagedItems,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<CustomerDto>> GetById(Guid id)
+    {
+        var customer = await _service.GetByIdAsync(id);
+        if (customer == null)
+            return NotFound();
+
+        return Ok(customer);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<CustomerDto>> Create(Customer customer)
+    {
+        var created = await _service.CreateAsync(customer);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<CustomerDto>> Update(Guid id, Customer customer)
+    {
+        var updated = await _service.UpdateAsync(id, customer);
+        if (updated == null)
+            return NotFound();
+
+        return Ok(updated);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var deleted = await _service.DeleteAsync(id);
+        if (!deleted)
+            return NotFound();
+
+        return NoContent();
+    }
+}

@@ -1,0 +1,71 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# ASP.NET Core - Sensitive files
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.Production.json
+secrets.json
+
+# User secrets
+secrets/
+
+# Angular/Node
+**/node_modules/
+**/dist/
+**/tmp/
+**/.angular/
+npm-debug.log
+yarn-error.log
+
+# Environment files
+**/.env
+**/.env.local
+**/.env.development
+**/.env.production
+**/environment.ts
+**/environment.development.ts
+**/environment.prod.ts
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+*.swp
+*.bak
+*.tmp
+*.temp

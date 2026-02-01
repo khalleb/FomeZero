@@ -1,0 +1,115 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$dark-theme: mat.define-theme((
+  color: (
+    theme-type: dark,
+    primary: mat.$cyan-palette,
+    tertiary: mat.$orange-palette,
+  ),
+  density: (
+    scale: 0,
+  )
+));
+
+html {
+  @include mat.all-component-themes($dark-theme);
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  background-color: #121212;
+  color: #ffffff;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+// Dark theme adjustments
+.mat-mdc-card {
+  background-color: #1e1e1e !important;
+}
+
+.mat-mdc-table {
+  background-color: #1e1e1e !important;
+}
+
+.mat-mdc-dialog-container {
+  --mdc-dialog-container-color: #1e1e1e;
+}
+
+.mat-toolbar.mat-primary {
+  background-color: #1e1e1e !important;
+}
+
+.sidenav {
+  background-color: #1e1e1e !important;
+}
+
+a {
+  color: #00bcd4;
+}
+
+// Responsive styles
+@media (max-width: 768px) {
+  // Dialogs full-width on mobile
+  .cdk-overlay-pane.mat-mdc-dialog-panel {
+    max-width: 100vw !important;
+    width: calc(100vw - 32px) !important;
+  }
+
+  // Larger touch targets for buttons
+  .mat-mdc-button,
+  .mat-mdc-raised-button,
+  .mat-mdc-outlined-button,
+  .mat-mdc-icon-button {
+    min-height: 48px;
+  }
+
+  // Smaller container padding on mobile
+  .container {
+    padding: 12px;
+  }
+
+  // Content area padding adjustment
+  .content {
+    padding: 12px !important;
+  }
+
+  // Table improvements for mobile
+  .mat-mdc-table {
+    font-size: 14px;
+  }
+
+  .mat-mdc-cell,
+  .mat-mdc-header-cell {
+    padding: 8px 12px !important;
+  }
+
+  // Form field adjustments
+  .mat-mdc-form-field {
+    width: 100%;
+  }
+}
