@@ -111,7 +111,7 @@ public class DashboardService : IDashboardService
         }
         response.MonthlyHistory = monthlyHistory;
 
-        // Top 3 lanches mais vendidos no período
+        // Top 5 lanches mais vendidos no período
         response.TopSellingSnacks = salesInPeriodList
             .SelectMany(s => s.Items)
             .GroupBy(i => new { i.SnackId, SnackName = i.Snack?.Name ?? "Desconhecido" })
@@ -122,7 +122,7 @@ public class DashboardService : IDashboardService
                 TotalRevenue = g.Sum(i => i.Quantity * i.UnitPrice)
             })
             .OrderByDescending(s => s.QuantitySold)
-            .Take(3)
+            .Take(5)
             .ToList();
 
         // Top 5 maiores devedores (não depende do período)

@@ -165,18 +165,6 @@ import { SaleFormComponent } from '../sales/sale-form.component';
           </mat-card-content>
         </mat-card>
 
-        <mat-card class="counter-card clickable" (click)="navigateTo('/snacks')">
-          <mat-card-content>
-            <div class="counter-icon snacks">
-              <mat-icon>lunch_dining</mat-icon>
-            </div>
-            <div class="counter-info">
-              <h3>{{ stats()?.totalSnacks }}</h3>
-              <p>Lanches</p>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
         <mat-card class="counter-card clickable" (click)="navigateTo('/accounts-receivable')">
           <mat-card-content>
             <div class="counter-icon receivable-link">
@@ -192,6 +180,33 @@ import { SaleFormComponent } from '../sales/sale-form.component';
 
       <!-- Rankings Section -->
       <div class="rankings-section">
+        <!-- Top Selling Snacks -->
+        <mat-card class="ranking-card snacks">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>emoji_events</mat-icon>
+              Top 5 Lanches Mais Vendidos
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            @if (stats()?.topSellingSnacks && stats()!.topSellingSnacks.length > 0) {
+              <div class="ranking-list">
+                @for (snack of stats()!.topSellingSnacks; track snack.snackName; let i = $index) {
+                  <div class="ranking-item" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
+                    <div class="rank-badge">{{ i + 1 }}</div>
+                    <div class="rank-info">
+                      <span class="rank-name">{{ snack.snackName }}</span>
+                      <span class="rank-details">{{ snack.quantitySold }} vendidos - {{ snack.totalRevenue | currency:'BRL' }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="empty-message">Nenhuma venda no período</p>
+            }
+          </mat-card-content>
+        </mat-card>
+
         <!-- Top Buyers -->
         <mat-card class="ranking-card">
           <mat-card-header>
@@ -552,6 +567,9 @@ import { SaleFormComponent } from '../sales/sale-form.component';
       color: #ffd700;
     }
     .ranking-card.debtors mat-card-title mat-icon {
+      color: #ff9800;
+    }
+    .ranking-card.snacks mat-card-title mat-icon {
       color: #ff9800;
     }
     .ranking-list {
