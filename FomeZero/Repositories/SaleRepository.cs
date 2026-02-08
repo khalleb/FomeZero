@@ -37,6 +37,7 @@ public class SaleRepository : ISaleRepository
     public async Task<IEnumerable<Sale>> GetByCustomerIdAsync(Guid customerId)
     {
         return await _context.Sales
+            .Where(s => s.Active)
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
             .Where(s => s.CustomerId == customerId)
@@ -46,6 +47,7 @@ public class SaleRepository : ISaleRepository
     public async Task<IEnumerable<Sale>> GetUnpaidAsync()
     {
         return await _context.Sales
+            .Where(s => s.Active)
             .Include(s => s.Customer)
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
@@ -57,6 +59,7 @@ public class SaleRepository : ISaleRepository
     public async Task<IEnumerable<Sale>> GetUnpaidByCustomerIdAsync(Guid customerId)
     {
         return await _context.Sales
+            .Where(s => s.Active)
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
             .Include(s => s.Payments)
@@ -152,5 +155,18 @@ public class SaleRepository : ISaleRepository
 
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<Sale?> CancelAsync(Guid id)
+    {
+        var sale = await _context.Sales
+            .Include(s => s.Items)
+            .Include(s => s.Payments)
+            .FirstOrDefaultAsync(s => s.Id == id && s.Active);
+        if (sale == null) return null;
+
+        sale.Active = false;
+        await _context.SaveChangesAsync();
+        return sale;
     }
 }

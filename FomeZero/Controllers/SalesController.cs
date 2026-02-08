@@ -224,4 +224,14 @@ public class SalesController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpPatch("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id)
+    {
+        var (success, error) = await _service.CancelAsync(id);
+        if (!success)
+            return BadRequest(new { message = error });
+
+        return NoContent();
+    }
 }

@@ -14,4 +14,5 @@ public interface ISaleService
     Task<IEnumerable<CustomerDebtDto>> GetCustomersWithDebtsAsync();
     Task<Sale> CreateAsync(Sale sale, List<PaymentDetail>? payments = null);
     Task<bool> MarkAsPaidAsync(Guid id, DateTime? paidAt, List<PaymentDetail>? payments);
+    Task<(bool Success, string? Error)> CancelAsync(Guid id);
 }

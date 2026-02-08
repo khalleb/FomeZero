@@ -32,6 +32,7 @@ export interface Sale {
   totalAmount?: number;
   paidAmount?: number;
   remainingAmount?: number;
+  active?: boolean;
   createdAt?: Date;
 }
 

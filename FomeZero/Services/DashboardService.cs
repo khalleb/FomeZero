@@ -24,6 +24,7 @@ public class DashboardService : IDashboardService
 
         // Todas as vendas com itens e clientes para calcular totais
         var allSales = await _context.Sales
+            .Where(s => s.Active)
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
             .Include(s => s.Customer)

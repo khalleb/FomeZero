@@ -96,4 +96,8 @@ export class SaleService {
     }
     return this.http.patch<void>(`${this.apiUrl}/${id}/pay`, body);
   }
+
+  cancel(id: string): Observable<void> {
+    return this.http.patch<void>(`${this.apiUrl}/${id}/cancel`, {});
+  }
 }

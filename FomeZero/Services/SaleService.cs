@@ -8,11 +8,13 @@ public class SaleService : ISaleService
 {
     private readonly ISaleRepository _repository;
     private readonly ISnackRepository _snackRepository;
+    private readonly ICustomerCreditRepository _creditRepository;
 
-    public SaleService(ISaleRepository repository, ISnackRepository snackRepository)
+    public SaleService(ISaleRepository repository, ISnackRepository snackRepository, ICustomerCreditRepository creditRepository)
     {
         _repository = repository;
         _snackRepository = snackRepository;
+        _creditRepository = creditRepository;
     }
 
     public async Task<IEnumerable<Sale>> GetAllAsync()
@@ -104,5 +106,27 @@ public class SaleService : ISaleService
 
         var isFullPayment = paymentsTotal >= remaining - 0.01m;
         return await _repository.AddPaymentAsync(id, paidAt, payments, isFullPayment);
+    }
+
+    public async Task<(bool Success, string? Error)> CancelAsync(Guid id)
+    {
+        var sale = await _repository.CancelAsync(id);
+        if (sale == null) return (false, "Venda não encontrada");
+
+        var paidAmount = sale.PaidAmount;
+        if (paidAmount > 0)
+        {
+            await _creditRepository.CreateAsync(new CustomerCredit
+            {
+                CustomerId = sale.CustomerId,
+                Amount = paidAmount,
+                Type = CreditType.Credit,
+                Description = "Estorno - Cancelamento de venda",
+                ReferenceDate = DateTime.UtcNow
+            });
+            await _creditRepository.UpdateCustomerCreditAsync(sale.CustomerId, paidAmount);
+        }
+
+        return (true, null);
     }
 }

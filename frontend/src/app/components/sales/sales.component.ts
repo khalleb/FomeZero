@@ -11,12 +11,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { SaleService } from '../../services/sale.service';
 import { PaymentMethodService } from '../../services/payment-method.service';
 import { Sale } from '../../models/sale.model';
 import { PaymentMethod } from '../../models/payment-method.model';
 import { SaleFormComponent } from './sale-form.component';
 import { ReceivePaymentDialogComponent, ReceivePaymentDialogResult } from '../shared/receive-payment-dialog.component';
+import { ConfirmCancelDialogComponent } from '../shared/confirm-cancel-dialog.component';
 
 @Component({
   selector: 'app-sales',
@@ -34,6 +36,7 @@ import { ReceivePaymentDialogComponent, ReceivePaymentDialogResult } from '../sh
     MatPaginatorModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSnackBarModule,
   ],
   template: `
     <div class="header">
@@ -90,18 +93,27 @@ import { ReceivePaymentDialogComponent, ReceivePaymentDialogResult } from '../sh
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>Status</th>
               <td mat-cell *matCellDef="let sale">
-                <mat-chip [class.paid]="sale.isPaid" [class.unpaid]="!sale.isPaid">
-                  {{ sale.isPaid ? 'Pago' : 'Fiado' }}
-                </mat-chip>
+                @if (sale.active === false) {
+                  <mat-chip class="cancelled">Cancelado</mat-chip>
+                } @else {
+                  <mat-chip [class.paid]="sale.isPaid" [class.unpaid]="!sale.isPaid">
+                    {{ sale.isPaid ? 'Pago' : 'Fiado' }}
+                  </mat-chip>
+                }
               </td>
             </ng-container>
 
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef>Ações</th>
               <td mat-cell *matCellDef="let sale">
-                @if (!sale.isPaid) {
-                  <button mat-button color="primary" (click)="markAsPaid(sale)">
-                    Receber
+                @if (sale.active !== false) {
+                  @if (!sale.isPaid) {
+                    <button mat-button color="primary" (click)="markAsPaid(sale)">
+                      Receber
+                    </button>
+                  }
+                  <button mat-button color="warn" (click)="cancelSale(sale)">
+                    Cancelar
                   </button>
                 }
               </td>
@@ -168,6 +180,10 @@ import { ReceivePaymentDialogComponent, ReceivePaymentDialogResult } from '../sh
       background-color: #f44336 !important;
       color: white !important;
     }
+    .cancelled {
+      background-color: #9e9e9e !important;
+      color: white !important;
+    }
   `]
 })
 export class SalesComponent implements OnInit {
@@ -184,7 +200,8 @@ export class SalesComponent implements OnInit {
   constructor(
     private saleService: SaleService,
     private paymentMethodService: PaymentMethodService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
@@ -255,6 +272,41 @@ export class SalesComponent implements OnInit {
       if (result?.confirmed) {
         this.saleService.markAsPaid(sale.id!, result.paidAt, result.payments).subscribe(() => {
           this.loadSales();
+        });
+      }
+    });
+  }
+
+  cancelSale(sale: Sale): void {
+    const dialogRef = this.dialog.open(ConfirmCancelDialogComponent, {
+      width: '500px',
+      data: {
+        customerName: sale.customer?.name || 'Cliente',
+        saleDate: sale.saleDate,
+        totalAmount: sale.totalAmount || 0,
+        paidAmount: sale.paidAmount || 0,
+        items: sale.items || []
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.saleService.cancel(sale.id!).subscribe({
+          next: () => {
+            this.snackBar.open('Venda cancelada com sucesso', 'Fechar', {
+              duration: 3000,
+              horizontalPosition: 'center',
+              verticalPosition: 'top'
+            });
+            this.loadSales();
+          },
+          error: () => {
+            this.snackBar.open('Erro ao cancelar venda', 'Fechar', {
+              duration: 3000,
+              horizontalPosition: 'center',
+              verticalPosition: 'top'
+            });
+          }
         });
       }
     });

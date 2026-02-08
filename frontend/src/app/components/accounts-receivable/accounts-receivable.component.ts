@@ -19,6 +19,7 @@ import { CustomerCreditService } from '../../services/customer-credit.service';
 import { Sale, CustomerDebtSummary } from '../../models/sale.model';
 import { PaymentMethod } from '../../models/payment-method.model';
 import { ReceivePaymentDialogComponent, ReceivePaymentDialogResult } from '../shared/receive-payment-dialog.component';
+import { ConfirmCancelDialogComponent } from '../shared/confirm-cancel-dialog.component';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { forkJoin } from 'rxjs';
 
@@ -175,6 +176,9 @@ import { forkJoin } from 'rxjs';
                         <td mat-cell *matCellDef="let sale">
                           <button mat-button color="primary" (click)="receiveSingle(sale, debt)">
                             Receber
+                          </button>
+                          <button mat-button color="warn" (click)="cancelSale(sale, debt)">
+                            Cancelar
                           </button>
                         </td>
                       </ng-container>
@@ -618,6 +622,42 @@ export class AccountsReceivableComponent implements OnInit {
           });
           this.loadData();
           this.customerSales.set({});
+        });
+      }
+    });
+  }
+
+  cancelSale(sale: Sale, debt: CustomerDebtSummary): void {
+    const dialogRef = this.dialog.open(ConfirmCancelDialogComponent, {
+      width: '500px',
+      data: {
+        customerName: debt.customerName,
+        saleDate: sale.saleDate,
+        totalAmount: sale.totalAmount || 0,
+        paidAmount: sale.paidAmount || 0,
+        items: sale.items || []
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.saleService.cancel(sale.id!).subscribe({
+          next: () => {
+            this.snackBar.open('Venda cancelada com sucesso', 'Fechar', {
+              duration: 3000,
+              horizontalPosition: 'center',
+              verticalPosition: 'top'
+            });
+            this.loadData();
+            this.customerSales.set({});
+          },
+          error: () => {
+            this.snackBar.open('Erro ao cancelar venda', 'Fechar', {
+              duration: 3000,
+              horizontalPosition: 'center',
+              verticalPosition: 'top'
+            });
+          }
         });
       }
     });
