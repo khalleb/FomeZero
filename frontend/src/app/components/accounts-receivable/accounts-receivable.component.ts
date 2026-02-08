@@ -114,7 +114,7 @@ import { forkJoin } from 'rxjs';
                       @if (debt.customerCredit > 0) {
                         <mat-chip class="credit-chip">Crédito: {{ debt.customerCredit | currency:'BRL' }}</mat-chip>
                       }
-                      <span class="debt-amount">{{ debt.totalDebt | currency:'BRL' }}</span>
+                      <span class="debt-amount">{{ debt.effectiveDebt | currency:'BRL' }}</span>
                     </div>
                   </mat-panel-description>
                 </mat-expansion-panel-header>
@@ -128,7 +128,7 @@ import { forkJoin } from 'rxjs';
                     <div class="sales-actions-header">
                       <button mat-raised-button color="primary" (click)="receiveAll(debt)">
                         <mat-icon>payments</mat-icon>
-                        Receber Tudo ({{ debt.totalDebt | currency:'BRL' }})
+                        Receber Tudo ({{ debt.effectiveDebt | currency:'BRL' }})
                       </button>
                       <button mat-stroked-button (click)="copyReport(debt)">
                         <mat-icon>content_copy</mat-icon>
@@ -159,7 +159,15 @@ import { forkJoin } from 'rxjs';
 
                       <ng-container matColumnDef="total">
                         <th mat-header-cell *matHeaderCellDef>Valor</th>
-                        <td mat-cell *matCellDef="let sale">{{ sale.totalAmount | currency:'BRL' }}</td>
+                        <td mat-cell *matCellDef="let sale">
+                          @if (sale.paidAmount > 0) {
+                            <span [matTooltip]="'Original: ' + formatCurrency(sale.totalAmount) + ' | Pago: ' + formatCurrency(sale.paidAmount)">
+                              {{ sale.remainingAmount | currency:'BRL' }}
+                            </span>
+                          } @else {
+                            {{ sale.totalAmount | currency:'BRL' }}
+                          }
+                        </td>
                       </ng-container>
 
                       <ng-container matColumnDef="actions">
@@ -356,7 +364,7 @@ export class AccountsReceivableComponent implements OnInit {
       next: (result) => {
         this.debts.set(result.debts.items);
         this.totalCount.set(result.debts.totalCount);
-        this.totalDebt.set(result.debts.items.reduce((sum, d) => sum + d.totalDebt, 0));
+        this.totalDebt.set(result.debts.items.reduce((sum, d) => sum + d.effectiveDebt, 0));
         this.paymentMethods.set(result.paymentMethods.items);
         this.loading.set(false);
       },
@@ -436,11 +444,20 @@ export class AccountsReceivableComponent implements OnInit {
       const items = sale.items?.map(item =>
         `${item.snack?.name || 'Item'} (${item.quantity}x)`
       ).join(', ') || 'Itens não disponíveis';
-      const amount = this.formatCurrency(sale.totalAmount || 0);
-      report += `• ${saleDate} - ${items} - ${amount}\n`;
+      const remaining = sale.remainingAmount ?? sale.totalAmount ?? 0;
+      const amount = this.formatCurrency(remaining);
+      if (sale.paidAmount && sale.paidAmount > 0) {
+        report += `• ${saleDate} - ${items} - ${amount} (pago parcial: ${this.formatCurrency(sale.paidAmount)})\n`;
+      } else {
+        report += `• ${saleDate} - ${items} - ${amount}\n`;
+      }
     }
 
-    report += `\n💰 *Total devido: ${this.formatCurrency(debt.totalDebt)}*\n\n`;
+    if (debt.customerCredit > 0) {
+      report += `\n✅ *Crédito disponível: ${this.formatCurrency(debt.customerCredit)}*\n`;
+    }
+
+    report += `\n💰 *Total devido: ${this.formatCurrency(debt.effectiveDebt)}*\n\n`;
     report += `Qualquer dúvida, estamos à disposição!`;
 
     return report;
@@ -472,11 +489,13 @@ export class AccountsReceivableComponent implements OnInit {
   }
 
   receiveSingle(sale: Sale, debt: CustomerDebtSummary): void {
+    const amountToPay = sale.remainingAmount ?? sale.totalAmount ?? 0;
     const dialogRef = this.dialog.open(ReceivePaymentDialogComponent, {
       width: '500px',
       data: {
         customerName: debt.customerName,
-        totalAmount: sale.totalAmount || 0,
+        totalAmount: amountToPay,
+        originalAmount: sale.paidAmount && sale.paidAmount > 0 ? sale.totalAmount : undefined,
         paymentMethods: this.paymentMethods(),
         customerId: debt.customerId,
         customerCredit: debt.customerCredit
@@ -508,10 +527,10 @@ export class AccountsReceivableComponent implements OnInit {
       width: '500px',
       data: {
         customerName: debt.customerName,
-        totalAmount: debt.totalDebt,
+        totalAmount: debt.effectiveDebt,
         paymentMethods: this.paymentMethods(),
         customerId: debt.customerId,
-        customerCredit: 0, // Desabilitar uso de crédito no FIFO
+        customerCredit: 0, // Crédito já descontado no effectiveDebt
         allowPartialPayment: true
       }
     });
@@ -523,84 +542,72 @@ export class AccountsReceivableComponent implements OnInit {
           return;
         }
 
-        // Calcular valor total recebido (apenas pagamentos)
         const totalPayments = result.payments.reduce((sum, p) => sum + p.amount, 0);
-        let remainingAmount = totalPayments;
 
         // Ordenar vendas por data (mais antiga primeiro - FIFO)
         const sortedSales = [...sales].sort((a, b) =>
           new Date(a.saleDate!).getTime() - new Date(b.saleDate!).getTime()
         );
 
-        // Determinar quais vendas serão pagas completamente
-        const salesToPay: Sale[] = [];
+        // Alocar pagamentos FIFO (incluindo parciais)
+        let remainingPayment = totalPayments;
+        const saleAllocations: { sale: Sale; payAmount: number }[] = [];
+
         for (const sale of sortedSales) {
-          const saleAmount = sale.totalAmount || 0;
-          if (remainingAmount >= saleAmount) {
-            salesToPay.push(sale);
-            remainingAmount -= saleAmount;
-          } else {
-            break; // Não tem dinheiro suficiente para esta venda
-          }
+          if (remainingPayment <= 0.01) break;
+          const saleRemaining = sale.remainingAmount ?? sale.totalAmount ?? 0;
+          const payAmount = Math.round(Math.min(saleRemaining, remainingPayment) * 100) / 100;
+          saleAllocations.push({ sale, payAmount });
+          remainingPayment -= payAmount;
         }
 
-        // Pagar as vendas selecionadas
-        if (salesToPay.length === 0) {
-          // Nenhuma venda pode ser paga completamente, adicionar tudo como crédito
-          this.customerCreditService.addCredit({
-            customerId: debt.customerId,
-            amount: totalPayments,
-            description: `Pagamento antecipado - ${debt.customerName}`,
-            referenceDate: result.paidAt
-          }).subscribe(() => {
-            this.snackBar.open(
-              `Valor de ${this.formatCurrency(totalPayments)} adicionado como crédito para ${debt.customerName}`,
-              'Fechar',
-              { duration: 5000, horizontalPosition: 'center', verticalPosition: 'top' }
-            );
-            this.loadData();
-            this.customerSales.set({});
-          });
+        if (saleAllocations.length === 0) {
           return;
         }
 
-        // Se sobrou dinheiro após pagar as vendas completas, adicionar como crédito
-        const creditGenerated = remainingAmount > 0.01 ? Math.round(remainingAmount * 100) / 100 : 0;
+        // Se sobrou dinheiro após pagar TODAS as vendas, gerar crédito
+        const creditGenerated = remainingPayment > 0.01
+          ? Math.round(remainingPayment * 100) / 100
+          : 0;
         if (creditGenerated > 0) {
           this.customerCreditService.addCredit({
             customerId: debt.customerId,
             amount: creditGenerated,
-            description: `Troco do pagamento de ${salesToPay.length} venda(s)`,
+            description: `Troco do pagamento de ${saleAllocations.length} venda(s)`,
             referenceDate: result.paidAt
           }).subscribe();
         }
 
-        // Distribuir pagamentos entre as vendas que serão pagas
-        const totalToPay = salesToPay.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-
-        const paymentPromises = salesToPay.map((sale, index) => {
-          const saleAmount = sale.totalAmount || 0;
-
-          // Distribuir proporcionalmente apenas os pagamentos (não o crédito)
+        // Distribuir formas de pagamento proporcionalmente por venda
+        const paymentPromises = saleAllocations.map((alloc, index) => {
           const salePayments: PaymentDetail[] = result.payments.map(p => ({
             paymentMethodId: p.paymentMethodId,
-            amount: Math.round((p.amount * saleAmount / totalToPay) * 100) / 100
+            amount: Math.round((p.amount * alloc.payAmount / totalPayments) * 100) / 100
           }));
 
           // Ajustar arredondamento na última venda
-          if (index === salesToPay.length - 1) {
+          if (index === saleAllocations.length - 1) {
             const totalDistributed = salePayments.reduce((sum, p) => sum + p.amount, 0);
-            const diff = Math.round((saleAmount - totalDistributed) * 100) / 100;
+            const diff = Math.round((alloc.payAmount - totalDistributed) * 100) / 100;
             if (Math.abs(diff) > 0.01 && salePayments.length > 0) {
               salePayments[0].amount = Math.round((salePayments[0].amount + diff) * 100) / 100;
             }
           }
 
-          return this.saleService.markAsPaid(sale.id!, result.paidAt, salePayments);
+          return this.saleService.markAsPaid(alloc.sale.id!, result.paidAt, salePayments);
         });
 
         forkJoin(paymentPromises).subscribe(() => {
-          let message = `${salesToPay.length} venda(s) quitada(s)`;
+          const fullyPaid = saleAllocations.filter(a => {
+            const saleRemaining = a.sale.remainingAmount ?? a.sale.totalAmount ?? 0;
+            return a.payAmount >= saleRemaining - 0.01;
+          }).length;
+          const partiallyPaid = saleAllocations.length - fullyPaid;
+
+          let message = `${fullyPaid} venda(s) quitada(s)`;
+          if (partiallyPaid > 0) {
+            message += `, ${partiallyPaid} parcialmente paga(s)`;
+          }
           if (creditGenerated > 0) {
             message += `. Crédito gerado: ${this.formatCurrency(creditGenerated)}`;
           }

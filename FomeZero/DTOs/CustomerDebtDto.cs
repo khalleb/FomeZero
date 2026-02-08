@@ -9,4 +9,5 @@ public class CustomerDebtDto
     public decimal CustomerCredit { get; set; }
     public int UnpaidSalesCount { get; set; }
     public DateTime? OldestSaleDate { get; set; }
+    public decimal EffectiveDebt => Math.Max(0, TotalDebt - CustomerCredit);
 }

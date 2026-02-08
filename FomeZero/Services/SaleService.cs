@@ -43,7 +43,7 @@ public class SaleService : ISaleService
     public async Task<decimal> GetTotalDebtByCustomerIdAsync(Guid customerId)
     {
         var unpaidSales = await _repository.GetUnpaidByCustomerIdAsync(customerId);
-        return unpaidSales.Sum(s => s.TotalAmount);
+        return unpaidSales.Sum(s => s.RemainingAmount);
     }
 
     public async Task<IEnumerable<CustomerDebtDto>> GetCustomersWithDebtsAsync()
@@ -57,7 +57,7 @@ public class SaleService : ISaleService
                 CustomerId = g.Key,
                 CustomerName = g.First().Customer?.Name ?? "Cliente",
                 CustomerWhatsApp = g.First().Customer?.WhatsApp ?? "",
-                TotalDebt = g.Sum(s => s.TotalAmount),
+                TotalDebt = g.Sum(s => s.RemainingAmount),
                 CustomerCredit = g.First().Customer?.Credit ?? 0,
                 UnpaidSalesCount = g.Count(),
                 OldestSaleDate = g.Min(s => s.SaleDate)
@@ -89,17 +89,20 @@ public class SaleService : ISaleService
 
     public async Task<bool> MarkAsPaidAsync(Guid id, DateTime? paidAt, List<PaymentDetail>? payments)
     {
-        if (payments != null && payments.Count > 0)
-        {
-            var sale = await _repository.GetByIdAsync(id);
-            if (sale == null)
-                return false;
+        if (payments == null || payments.Count == 0)
+            return await _repository.MarkAsPaidAsync(id, paidAt, payments);
 
-            var paymentsTotal = payments.Sum(p => p.Amount);
-            if (paymentsTotal != sale.TotalAmount)
-                return false;
-        }
+        var sale = await _repository.GetByIdAsync(id);
+        if (sale == null)
+            return false;
 
-        return await _repository.MarkAsPaidAsync(id, paidAt, payments);
+        var paymentsTotal = payments.Sum(p => p.Amount);
+        var remaining = sale.RemainingAmount;
+
+        if (paymentsTotal > remaining + 0.01m)
+            return false;
+
+        var isFullPayment = paymentsTotal >= remaining - 0.01m;
+        return await _repository.AddPaymentAsync(id, paidAt, payments, isFullPayment);
     }
 }

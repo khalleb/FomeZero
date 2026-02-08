@@ -27,11 +27,12 @@ public class DashboardService : IDashboardService
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
             .Include(s => s.Customer)
+            .Include(s => s.Payments)
             .ToListAsync();
 
         // Total a receber (todas as vendas fiadas - não depende do período)
         var unpaidSales = allSales.Where(s => !s.IsPaid).ToList();
-        response.TotalReceivable = unpaidSales.Sum(s => s.TotalAmount);
+        response.TotalReceivable = unpaidSales.Sum(s => s.RemainingAmount);
         response.UnpaidSalesCount = unpaidSales.Count;
 
         // Vendas no período selecionado
@@ -132,7 +133,7 @@ public class DashboardService : IDashboardService
             {
                 CustomerId = g.Key.CustomerId,
                 CustomerName = g.Key.CustomerName,
-                TotalDebt = g.Sum(s => s.TotalAmount),
+                TotalDebt = g.Sum(s => s.RemainingAmount),
                 UnpaidSalesCount = g.Count()
             })
             .OrderByDescending(c => c.TotalDebt)
@@ -182,7 +183,7 @@ public class DashboardService : IDashboardService
                 CustomerName = s.Customer?.Name ?? "Desconhecido",
                 SaleDate = s.SaleDate,
                 DaysOverdue = (int)(now - s.SaleDate).TotalDays,
-                Amount = s.TotalAmount
+                Amount = s.RemainingAmount
             })
             .ToList();
 
@@ -196,7 +197,7 @@ public class DashboardService : IDashboardService
             {
                 CustomerId = g.Key.CustomerId,
                 CustomerName = g.Key.CustomerName,
-                TotalDebt = g.Sum(s => s.TotalAmount),
+                TotalDebt = g.Sum(s => s.RemainingAmount),
                 UnpaidSalesCount = g.Count()
             })
             .Where(c => c.UnpaidSalesCount >= highRiskUnpaidCount || c.TotalDebt >= highRiskDebtAmount)

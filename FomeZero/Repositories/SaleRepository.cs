@@ -30,6 +30,7 @@ public class SaleRepository : ISaleRepository
             .Include(s => s.Customer)
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
+            .Include(s => s.Payments)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
@@ -48,6 +49,7 @@ public class SaleRepository : ISaleRepository
             .Include(s => s.Customer)
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
+            .Include(s => s.Payments)
             .Where(s => !s.IsPaid)
             .ToListAsync();
     }
@@ -57,6 +59,7 @@ public class SaleRepository : ISaleRepository
         return await _context.Sales
             .Include(s => s.Items)
                 .ThenInclude(i => i.Snack)
+            .Include(s => s.Payments)
             .Where(s => s.CustomerId == customerId && !s.IsPaid)
             .OrderBy(s => s.SaleDate)
             .ToListAsync();
@@ -115,6 +118,36 @@ public class SaleRepository : ISaleRepository
                 };
                 _context.SalePayments.Add(salePayment);
             }
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> AddPaymentAsync(Guid saleId, DateTime? paidAt, List<PaymentDetail> payments, bool markAsPaid)
+    {
+        var sale = await _context.Sales
+            .Include(s => s.Items)
+            .Include(s => s.Payments)
+            .FirstOrDefaultAsync(s => s.Id == saleId);
+        if (sale == null)
+            return false;
+
+        foreach (var payment in payments)
+        {
+            var salePayment = new SalePayment
+            {
+                SaleId = saleId,
+                PaymentMethodId = payment.PaymentMethodId,
+                Amount = payment.Amount
+            };
+            _context.SalePayments.Add(salePayment);
+        }
+
+        if (markAsPaid)
+        {
+            sale.IsPaid = true;
+            sale.PaidAt = paidAt ?? DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();

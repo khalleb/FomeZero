@@ -19,6 +19,7 @@ export interface PaymentEntry {
 export interface ReceivePaymentDialogData {
   customerName: string;
   totalAmount: number;
+  originalAmount?: number;
   paymentMethods: PaymentMethod[];
   customerId?: string;
   customerCredit?: number;
@@ -52,7 +53,12 @@ export interface ReceivePaymentDialogResult {
     <h2 mat-dialog-title>Receber Pagamento</h2>
     <mat-dialog-content>
       <p><strong>Cliente:</strong> {{ data.customerName }}</p>
-      <p><strong>Valor Total:</strong> {{ data.totalAmount | currency:'BRL' }}</p>
+      @if (data.originalAmount) {
+        <p><strong>Valor da venda:</strong> {{ data.originalAmount | currency:'BRL' }}</p>
+        <p><strong>Restante a pagar:</strong> {{ data.totalAmount | currency:'BRL' }}</p>
+      } @else {
+        <p><strong>Valor Total:</strong> {{ data.totalAmount | currency:'BRL' }}</p>
+      }
 
       @if (data.customerCredit && data.customerCredit > 0) {
         <div class="credit-section">

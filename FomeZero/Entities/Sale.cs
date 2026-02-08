@@ -11,4 +11,6 @@ public class Sale : EntityBase
     public List<SalePayment> Payments { get; set; } = [];
 
     public decimal TotalAmount => Items.Sum(i => i.TotalAmount);
+    public decimal PaidAmount => Payments.Sum(p => p.Amount);
+    public decimal RemainingAmount => TotalAmount - PaidAmount;
 }

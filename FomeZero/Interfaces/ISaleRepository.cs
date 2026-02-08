@@ -13,4 +13,5 @@ public interface ISaleRepository
     Task<Sale> CreateAsync(Sale sale, List<PaymentDetail>? payments = null);
     Task<Sale?> UpdateAsync(Sale sale);
     Task<bool> MarkAsPaidAsync(Guid id, DateTime? paidAt, List<PaymentDetail>? payments);
+    Task<bool> AddPaymentAsync(Guid saleId, DateTime? paidAt, List<PaymentDetail> payments, bool markAsPaid);
 }
