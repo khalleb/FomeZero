@@ -146,7 +146,7 @@ import { forkJoin } from 'rxjs';
                     <table mat-table [dataSource]="customerSales()[debt.customerId] || []" class="sales-table">
                       <ng-container matColumnDef="date">
                         <th mat-header-cell *matHeaderCellDef>Data</th>
-                        <td mat-cell *matCellDef="let sale">{{ sale.saleDate | date:'dd/MM/yyyy' }}</td>
+                        <td mat-cell *matCellDef="let sale">{{ sale.saleDate | date:'dd/MM/yyyy HH:mm' }}</td>
                       </ng-container>
 
                       <ng-container matColumnDef="items">
@@ -444,7 +444,7 @@ export class AccountsReceivableComponent implements OnInit {
     report += `📝 *Compras em aberto:*\n`;
 
     for (const sale of sales) {
-      const saleDate = new Date(sale.saleDate!).toLocaleDateString('pt-BR');
+      const saleDate = new Date(sale.saleDate!).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
       const items = sale.items?.map(item =>
         `${item.snack?.name || 'Item'} (${item.quantity}x)`
       ).join(', ') || 'Itens não disponíveis';
