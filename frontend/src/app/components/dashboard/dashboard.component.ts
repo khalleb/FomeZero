@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -12,6 +12,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { RouterModule, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartType } from 'chart.js';
 import { DashboardService } from '../../services/dashboard.service';
@@ -21,7 +22,6 @@ import { DashboardStats, PeriodType, SnackRankingItem, CustomerDebtRanking, Cust
 import { Sale } from '../../models/sale.model';
 import { PaymentMethod } from '../../models/payment-method.model';
 import { ReceivePaymentDialogComponent, ReceivePaymentDialogResult } from '../shared/receive-payment-dialog.component';
-import { SaleFormComponent } from '../sales/sale-form.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -43,7 +43,7 @@ import { SaleFormComponent } from '../sales/sale-form.component';
     BaseChartDirective
   ],
   template: `
-    <!-- Header com filtro de período e botão nova venda -->
+    <!-- Header com filtro de período -->
     <div class="dashboard-header">
       <div class="period-filter">
         <mat-button-toggle-group [(ngModel)]="selectedPeriod" (change)="onPeriodChange()">
@@ -70,11 +70,6 @@ import { SaleFormComponent } from '../sales/sale-form.component';
           </div>
         }
       </div>
-
-      <button mat-raised-button color="primary" class="new-sale-btn" (click)="openNewSale()">
-        <mat-icon>add_shopping_cart</mat-icon>
-        Nova Venda
-      </button>
     </div>
 
     @if (loading()) {
@@ -389,14 +384,6 @@ import { SaleFormComponent } from '../sales/sale-form.component';
     }
     .custom-date-range mat-form-field {
       width: 150px;
-    }
-    .new-sale-btn {
-      height: 48px;
-      font-size: 16px;
-      padding: 0 24px;
-    }
-    .new-sale-btn mat-icon {
-      margin-right: 8px;
     }
     .loading-container {
       display: flex;
@@ -730,9 +717,6 @@ import { SaleFormComponent } from '../sales/sale-form.component';
       .dashboard-header {
         flex-direction: column;
       }
-      .new-sale-btn {
-        width: 100%;
-      }
       .custom-date-range {
         flex-direction: column;
       }
@@ -757,7 +741,7 @@ import { SaleFormComponent } from '../sales/sale-form.component';
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   selectedPeriod: PeriodType = 'month';
   customStartDate: Date | null = null;
   customEndDate: Date | null = null;
@@ -769,6 +753,7 @@ export class DashboardComponent implements OnInit {
   readonly paymentMethods = signal<PaymentMethod[]>([]);
 
   readonly displayedColumns = ['customer', 'date', 'total', 'actions'];
+  private saleCreatedSub?: Subscription;
 
   // Configurações do gráfico
   readonly chartType: ChartType = 'line';
@@ -846,6 +831,11 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.saleCreatedSub = this.saleService.saleCreated$.subscribe(() => this.loadData());
+  }
+
+  ngOnDestroy(): void {
+    this.saleCreatedSub?.unsubscribe();
   }
 
   loadData(): void {
@@ -927,18 +917,6 @@ export class DashboardComponent implements OnInit {
 
   navigateTo(route: string): void {
     this.router.navigate([route]);
-  }
-
-  openNewSale(): void {
-    const dialogRef = this.dialog.open(SaleFormComponent, {
-      width: '600px'
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.loadData();
-      }
-    });
   }
 
   markAsPaid(sale: Sale): void {

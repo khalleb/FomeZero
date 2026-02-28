@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { Sale, CustomerDebt, CustomerDebtSummary } from '../models/sale.model';
 import { PagedResult } from '../models/paged-result.model';
 import { environment } from '../../environments/environment';
@@ -15,6 +15,7 @@ export interface PaymentDetail {
 })
 export class SaleService {
   private apiUrl = `${environment.apiUrl}/sales`;
+  readonly saleCreated$ = new Subject<void>();
 
   constructor(private http: HttpClient) {}
 

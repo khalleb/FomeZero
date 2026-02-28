@@ -6,9 +6,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenavModule, MatSidenav } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Router, NavigationEnd } from '@angular/router';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { AuthService } from '../../services/auth.service';
+import { SaleService } from '../../services/sale.service';
+import { SaleFormComponent } from '../sales/sale-form.component';
 import { Subscription, filter } from 'rxjs';
 
 @Component({
@@ -21,7 +25,9 @@ import { Subscription, filter } from 'rxjs';
     MatButtonModule,
     MatIconModule,
     MatSidenavModule,
-    MatListModule
+    MatListModule,
+    MatTooltipModule,
+    MatDialogModule
   ],
   template: `
     <mat-sidenav-container class="sidenav-container">
@@ -78,6 +84,10 @@ import { Subscription, filter } from 'rxjs';
         </main>
       </mat-sidenav-content>
     </mat-sidenav-container>
+
+    <button mat-fab color="primary" class="new-sale-fab" (click)="openNewSale()" matTooltip="Nova Venda" matTooltipPosition="left">
+      <mat-icon>add_shopping_cart</mat-icon>
+    </button>
   `,
   styles: [`
     .sidenav-container {
@@ -109,6 +119,12 @@ import { Subscription, filter } from 'rxjs';
       padding: 20px;
       background-color: #121212;
     }
+    .new-sale-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+    }
     .active {
       background-color: rgba(0, 188, 212, 0.15) !important;
     }
@@ -131,8 +147,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   constructor(
     private authService: AuthService,
+    private saleService: SaleService,
     private router: Router,
-    private breakpointObserver: BreakpointObserver
+    private breakpointObserver: BreakpointObserver,
+    private dialog: MatDialog
   ) {
     const user = this.authService.getUser();
     this.userName = user?.name || '';
@@ -163,6 +181,18 @@ export class LayoutComponent implements OnInit, OnDestroy {
     if (this.isMobile()) {
       this.sidenav.close();
     }
+  }
+
+  openNewSale(): void {
+    const dialogRef = this.dialog.open(SaleFormComponent, {
+      width: '600px'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.saleService.saleCreated$.next();
+      }
+    });
   }
 
   logout(): void {
