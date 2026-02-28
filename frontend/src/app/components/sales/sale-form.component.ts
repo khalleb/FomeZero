@@ -538,6 +538,10 @@ export class SaleFormComponent implements OnInit {
     const snackControl = new FormControl<string>('', { nonNullable: true });
     const quantityControl = new FormControl<number>(1, { nonNullable: true });
 
+    quantityControl.valueChanges.subscribe(() => {
+      this.itemRows.set([...this.itemRows()]);
+    });
+
     const newItem: ItemRow = {
       snackControl,
       quantityControl,
@@ -610,17 +614,25 @@ export class SaleFormComponent implements OnInit {
     const customer = this.selectedCustomer();
     const validItems = this.itemRows().filter(item => item.selectedSnack !== null);
 
+    const confirmItems = validItems.map(item => ({
+      snackName: item.selectedSnack!.name,
+      quantity: item.quantityControl.value,
+      unitPrice: item.selectedSnack!.price,
+      subtotal: item.selectedSnack!.price * item.quantityControl.value
+    }));
+
+    const freshCalculatedTotal = confirmItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const manualValue = this.manualTotalInput();
+    const freshFinalTotal = manualValue !== '' && !isNaN(parseFloat(manualValue)) && parseFloat(manualValue) >= 0
+      ? parseFloat(manualValue)
+      : freshCalculatedTotal;
+
     const dialogData: SaleConfirmDialogData = {
       customerName: customer?.name || 'Cliente',
       saleDate: this.form.value.saleDate,
-      items: validItems.map(item => ({
-        snackName: item.selectedSnack!.name,
-        quantity: item.quantityControl.value,
-        unitPrice: item.selectedSnack!.price,
-        subtotal: item.selectedSnack!.price * item.quantityControl.value
-      })),
-      calculatedTotal: this.calculatedTotal(),
-      finalTotal: this.finalTotal(),
+      items: confirmItems,
+      calculatedTotal: freshCalculatedTotal,
+      finalTotal: freshFinalTotal,
       isPaid: this.form.value.isPaid
     };
 
