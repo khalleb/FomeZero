@@ -6,7 +6,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenavModule, MatSidenav } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Router, NavigationEnd } from '@angular/router';
 import { BreakpointObserver } from '@angular/cdk/layout';
@@ -26,7 +25,6 @@ import { Subscription, filter } from 'rxjs';
     MatIconModule,
     MatSidenavModule,
     MatListModule,
-    MatTooltipModule,
     MatDialogModule
   ],
   template: `
@@ -85,8 +83,9 @@ import { Subscription, filter } from 'rxjs';
       </mat-sidenav-content>
     </mat-sidenav-container>
 
-    <button mat-fab color="primary" class="new-sale-fab" (click)="openNewSale()" matTooltip="Nova Venda" matTooltipPosition="left">
+    <button mat-fab extended color="primary" class="new-sale-fab" (click)="openNewSale()">
       <mat-icon>add_shopping_cart</mat-icon>
+      Nova Venda
     </button>
   `,
   styles: [`

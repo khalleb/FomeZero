@@ -11,6 +11,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CustomerService } from '../../services/customer.service';
 import { SnackService } from '../../services/snack.service';
 import { SaleService, PaymentDetail } from '../../services/sale.service';
@@ -20,6 +21,7 @@ import { Snack } from '../../models/snack.model';
 import { PaymentMethod } from '../../models/payment-method.model';
 import { finalize, map, startWith, Observable } from 'rxjs';
 import { SaleConfirmDialogComponent, SaleConfirmDialogData } from '../shared/sale-confirm-dialog.component';
+import { CustomerFormComponent } from '../customers/customer-form.component';
 
 interface PaymentEntry {
   paymentMethodId: string;
@@ -49,6 +51,7 @@ interface ItemRow {
     MatProgressSpinnerModule,
     MatAutocompleteModule,
     MatDatepickerModule,
+    MatTooltipModule,
     FormsModule,
   ],
   template: `
@@ -70,30 +73,37 @@ interface ItemRow {
             </mat-form-field>
           </div>
 
-          <mat-form-field class="full-width">
-            <mat-label>Cliente</mat-label>
-            <input matInput
-                   type="text"
-                   [formControl]="customerSearchControl"
-                   [matAutocomplete]="customerAuto"
-                   placeholder="Digite para pesquisar...">
-            <mat-icon matSuffix>search</mat-icon>
-            <mat-autocomplete #customerAuto="matAutocomplete"
-                              [displayWith]="displayCustomer"
-                              (optionSelected)="onCustomerSelected($event)">
-              @for (customer of filteredCustomers$ | async; track customer.id) {
-                <mat-option [value]="customer">
-                  <span class="option-name">{{ customer.name }}</span>
-                  @if (customer.whatsApp) {
-                    <span class="option-detail">{{ customer.whatsApp }}</span>
-                  }
-                </mat-option>
+          <div class="customer-field-row">
+            <mat-form-field class="full-width">
+              <mat-label>Cliente</mat-label>
+              <input matInput
+                     type="text"
+                     [formControl]="customerSearchControl"
+                     [matAutocomplete]="customerAuto"
+                     placeholder="Digite para pesquisar...">
+              <mat-icon matSuffix>search</mat-icon>
+              <mat-autocomplete #customerAuto="matAutocomplete"
+                                [displayWith]="displayCustomer"
+                                (optionSelected)="onCustomerSelected($event)">
+                @for (customer of filteredCustomers$ | async; track customer.id) {
+                  <mat-option [value]="customer">
+                    <span class="option-name">{{ customer.name }}</span>
+                    @if (customer.whatsApp) {
+                      <span class="option-detail">{{ customer.whatsApp }}</span>
+                    }
+                  </mat-option>
+                }
+              </mat-autocomplete>
+              @if (selectedCustomer()) {
+                <mat-hint class="selected-hint">Selecionado: {{ selectedCustomer()?.name }}</mat-hint>
               }
-            </mat-autocomplete>
-            @if (selectedCustomer()) {
-              <mat-hint class="selected-hint">Selecionado: {{ selectedCustomer()?.name }}</mat-hint>
-            }
-          </mat-form-field>
+            </mat-form-field>
+            <button mat-icon-button color="primary" type="button"
+                    (click)="openQuickAddCustomer()"
+                    matTooltip="Cadastrar novo cliente">
+              <mat-icon>person_add</mat-icon>
+            </button>
+          </div>
 
           <div class="items-section">
             <div class="items-header">
@@ -245,6 +255,14 @@ interface ItemRow {
     }
     .full-width {
       width: 100%;
+    }
+    .customer-field-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .customer-field-row .full-width {
+      flex: 1;
     }
     .items-section {
       margin: 20px 0;
@@ -506,6 +524,36 @@ export class SaleFormComponent implements OnInit {
   onCustomerSelected(event: any): void {
     const customer = event.option.value as Customer;
     this.selectedCustomer.set(customer);
+  }
+
+  openQuickAddCustomer(): void {
+    const searchText = typeof this.customerSearchControl.value === 'string'
+      ? this.customerSearchControl.value
+      : '';
+
+    const dialogRef = this.dialog.open(CustomerFormComponent, {
+      width: '400px',
+      data: null
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.customerService.getAll(1, 1000).subscribe({
+          next: (res) => {
+            const active = res.items.filter(c => c.active);
+            this.customers.set(active);
+
+            const match = active.find(c =>
+              c.name.toLowerCase().includes(searchText.toLowerCase())
+            );
+            if (match) {
+              this.selectedCustomer.set(match);
+              this.customerSearchControl.setValue(match);
+            }
+          }
+        });
+      }
+    });
   }
 
   createSnackFilterObservable(control: FormControl<string>): Observable<Snack[]> {
