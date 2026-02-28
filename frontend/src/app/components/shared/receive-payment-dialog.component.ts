@@ -183,35 +183,36 @@ export interface ReceivePaymentDialogResult {
     .summary {
       margin-top: 16px;
       padding: 12px;
-      background-color: #f5f5f5;
+      background-color: rgba(255, 255, 255, 0.05);
       border-radius: 4px;
     }
     .summary.error {
-      background-color: #ffebee;
+      background-color: rgba(244, 67, 54, 0.1);
     }
     .summary-row {
       display: flex;
       justify-content: space-between;
       margin: 4px 0;
+      color: #fff;
     }
     .summary-row.difference {
       color: #f44336;
       font-weight: 500;
     }
     .summary-row.info {
-      color: #1976d2;
+      color: #00bcd4;
       font-size: 12px;
     }
     .credit-section {
       margin: 16px 0;
       padding: 12px;
-      background-color: #e8f5e9;
+      background-color: rgba(76, 175, 80, 0.1);
       border-radius: 4px;
     }
     .credit-info {
       margin: 8px 0 0 0;
       font-size: 14px;
-      color: #2e7d32;
+      color: #4caf50;
     }
   `]
 })
