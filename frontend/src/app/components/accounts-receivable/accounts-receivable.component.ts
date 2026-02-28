@@ -129,7 +129,7 @@ import { forkJoin } from 'rxjs';
                     <div class="sales-actions-header">
                       <button mat-raised-button color="primary" (click)="receiveAll(debt)">
                         <mat-icon>payments</mat-icon>
-                        Receber Tudo ({{ debt.effectiveDebt | currency:'BRL' }})
+                        Receber Tudo ({{ getEffectiveDebt(debt) | currency:'BRL' }})
                       </button>
                       <button mat-stroked-button (click)="copyReport(debt)">
                         <mat-icon>content_copy</mat-icon>
@@ -526,15 +526,20 @@ export class AccountsReceivableComponent implements OnInit {
     });
   }
 
+  getEffectiveDebt(debt: CustomerDebtSummary): number {
+    return Math.max(0, debt.totalDebt - debt.customerCredit);
+  }
+
   receiveAll(debt: CustomerDebtSummary): void {
+    const effectiveAmount = this.getEffectiveDebt(debt);
     const dialogRef = this.dialog.open(ReceivePaymentDialogComponent, {
       width: '500px',
       data: {
         customerName: debt.customerName,
-        totalAmount: debt.effectiveDebt,
+        totalAmount: effectiveAmount,
         paymentMethods: this.paymentMethods(),
         customerId: debt.customerId,
-        customerCredit: 0, // Crédito já descontado no effectiveDebt
+        customerCredit: 0,
         allowPartialPayment: true
       }
     });

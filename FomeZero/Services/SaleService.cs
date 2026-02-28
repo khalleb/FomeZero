@@ -52,6 +52,9 @@ public class SaleService : ISaleService
     {
         var unpaidSales = await _repository.GetUnpaidAsync();
 
+        var customerIds = unpaidSales.Select(s => s.CustomerId).Distinct().ToList();
+        var creditBalances = await _creditRepository.GetCreditBalancesAsync(customerIds);
+
         var customerDebts = unpaidSales
             .GroupBy(s => s.CustomerId)
             .Select(g => new CustomerDebtDto
@@ -60,7 +63,7 @@ public class SaleService : ISaleService
                 CustomerName = g.First().Customer?.Name ?? "Cliente",
                 CustomerWhatsApp = g.First().Customer?.WhatsApp ?? "",
                 TotalDebt = g.Sum(s => s.RemainingAmount),
-                CustomerCredit = g.First().Customer?.Credit ?? 0,
+                CustomerCredit = creditBalances.GetValueOrDefault(g.Key, 0),
                 UnpaidSalesCount = g.Count(),
                 OldestSaleDate = g.Min(s => s.SaleDate)
             })

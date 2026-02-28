@@ -8,4 +8,5 @@ public interface ICustomerCreditRepository
     Task<CustomerCredit> CreateAsync(CustomerCredit credit);
     Task UpdateCustomerCreditAsync(Guid customerId, decimal amount);
     Task<decimal> GetCustomerCreditBalanceAsync(Guid customerId);
+    Task<Dictionary<Guid, decimal>> GetCreditBalancesAsync(List<Guid> customerIds);
 }

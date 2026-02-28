@@ -41,7 +41,32 @@ public class CustomerCreditRepository : ICustomerCreditRepository
 
     public async Task<decimal> GetCustomerCreditBalanceAsync(Guid customerId)
     {
-        var customer = await _context.Customers.FindAsync(customerId);
-        return customer?.Credit ?? 0;
+        var credits = await _context.CustomerCredits
+            .Where(c => c.CustomerId == customerId)
+            .ToListAsync();
+
+        return credits.Sum(c => c.Type == CreditType.Credit ? c.Amount : -c.Amount);
+    }
+
+    public async Task<Dictionary<Guid, decimal>> GetCreditBalancesAsync(List<Guid> customerIds)
+    {
+        if (customerIds.Count == 0)
+            return new Dictionary<Guid, decimal>();
+
+        var credits = await _context.CustomerCredits
+            .Where(c => customerIds.Contains(c.CustomerId))
+            .ToListAsync();
+
+        var balances = credits
+            .GroupBy(c => c.CustomerId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(c => c.Type == CreditType.Credit ? c.Amount : -c.Amount)
+            );
+
+        foreach (var id in customerIds.Where(id => !balances.ContainsKey(id)))
+            balances[id] = 0;
+
+        return balances;
     }
 }
